@@ -1,0 +1,17 @@
+out/
+.idea
+*.iws
+*.ipr
+*.iml
+*.merge*
+target
+build
+.gradle
+.settings
+.classpath
+.project
+.idea
+.sonar-ide.properties
+nbactions.xml
+nb-configuration.xml
+nbactions.xml
