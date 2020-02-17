@@ -19,7 +19,7 @@ plugins {
 apply plugin: 'maven-publish-auth'
 
 group 'org.silverpeas.tools'
-version '1.1-SNAPSHOT'
+version '1.1'
 
 sourceCompatibility = 1.8
 
