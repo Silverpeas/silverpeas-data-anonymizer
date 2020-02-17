@@ -3,17 +3,17 @@ package org.silverpeas.tools.anonymization.ssv
 import org.silverpeas.tools.anonymization.Settings
 
 /**
- * A SSV file in which all the users scanned in the database will be saved.
+ * SSV file to save collaborative spaces data ready to be used in tests against a running Silverpeas platform.
  * @author mmoquillon
  */
 object SpacesSSVFile: SSVFile("spaces.ssv") {
 
-    init {
-        write("Id")
+    override fun postOpening() {
+        write("Id", "Parent")
     }
 
     fun write(space: Settings.Space) {
-        write(space.id)
+        write(space.id, space.parentId)
     }
 
 }

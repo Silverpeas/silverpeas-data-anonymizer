@@ -3,7 +3,7 @@ package org.silverpeas.tools.anonymization
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
-import org.silverpeas.tools.anonymization.ssv.CompInstSSVFile
+import org.silverpeas.tools.anonymization.ssv.SSVLogger
 
 /**
  * The components instantiated in a given Silverpeas platform. A component in Silverpeas is a multi-instantiable
@@ -11,7 +11,7 @@ import org.silverpeas.tools.anonymization.ssv.CompInstSSVFile
  * Kmelia component instance provides the functionalities of an EDM.
  * @author mmoquillon
  */
-abstract class ComponentInstTable(name: String) : Table(name), Anonymizing {
+sealed class ComponentInstTable(name: String) : Table(name), Anonymizing {
     val id = integer("id")
     val name = varchar("name", 100)
     val description = varchar("description", 400).nullable()
@@ -19,16 +19,21 @@ abstract class ComponentInstTable(name: String) : Table(name), Anonymizing {
 
 object ComponentInst : ComponentInstTable("st_componentinstance") {
     val component = varchar("componentname", 100)
+    val space = integer("spaceid") references Space.id
 
     override val primaryKey = PrimaryKey(id, name = "PK_ComponentInstance")
 
     override fun anonymize() {
         selectAll().forUpdate().distinct().forEach { component ->
             update({ id eq component[id] }) {
-                val compInst = Settings.ComponentInst(component[ComponentInst.component], component[ComponentInst.id])
+                val compInst = Settings.ComponentInst(
+                    component[ComponentInst.component],
+                    component[ComponentInst.id],
+                    component[space]
+                )
                 it[ComponentInstI18n.name] = compInst.name
                 it[ComponentInstI18n.description] = compInst.description
-                CompInstSSVFile.write(compInst)
+                SSVLogger.ofComponentInstances().write(compInst)
             }
         }
     }
@@ -41,9 +46,8 @@ object ComponentInstI18n : ComponentInstTable("st_componentinstancei18n") {
     override fun anonymize() {
         innerJoin(ComponentInst).selectAll().forUpdate().distinct().forEach { component ->
             update({ ComponentInstI18n.id eq component[ComponentInstI18n.id] }) {
-                val compInst = Settings.ComponentInst(component[ComponentInst.component], component[ComponentInst.id])
-                it[name] = compInst.name
-                it[description] = compInst.description
+                it[name] = component[ComponentInst.name]
+                it[description] = component[ComponentInst.description]
             }
         }
     }

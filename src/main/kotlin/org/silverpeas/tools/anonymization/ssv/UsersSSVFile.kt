@@ -8,7 +8,7 @@ import org.silverpeas.tools.anonymization.Settings
  */
 object UsersSSVFile: SSVFile("user.ssv") {
 
-    init {
+    override fun postOpening() {
         write("Firstname",
             "Lastname",
             "Login",

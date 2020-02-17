@@ -33,20 +33,22 @@ object Settings {
 
     fun silverpeasHome() = props.getProperty("silverpeas.home") ?: ""
 
-    class Space(language: String, id: Int) {
+    class Space(language: String, id: Int, parent: Int?) {
         val id = "WA${id}"
-        val name = "${props.getProperty("space.name.${language}")} ${id}"
+        val name = "${props.getProperty("space.name.${language}")} $id"
         val description = null
+        val parentId = if (parent == null) "" else "WA${parent}"
     }
 
-    class ComponentInst(val type: String, id: Int) {
+    class ComponentInst(val type: String, id: Int, space: Int?) {
         val id = "${type}${id}"
-        val name = "${type} ${id}"
+        val name = "$type $id"
         val description = null
+        val spaceId = if (space == null) "" else "WA${space}"
     }
 
     class Domain(val id: Int) {
-        val name = "${props.getProperty("domain.name")} ${id}"
+        val name = "${props.getProperty("domain.name")} $id"
         val description = null
         val serverUrl = null
         val driver = ""
@@ -56,8 +58,8 @@ object Settings {
     }
 
     class User(val id: Int) {
-        val firstName = "${props.getProperty("user.firstName")} ${id}"
-        val lastName = "${props.getProperty("user.lastName")} ${id}"
+        val firstName = "${props.getProperty("user.firstName")} $id"
+        val lastName = "${props.getProperty("user.lastName")} $id"
         val email = props.getProperty("user.email")
         val login = "${props.getProperty("user.firstName")}${id}.${props.getProperty("user.lastName")}${id}"
         val plainPassword = props.getProperty("user.password")
@@ -66,7 +68,7 @@ object Settings {
     }
 
     class Group(val id: Int) {
-        val name = "${props.getProperty("group.name")} ${id}"
+        val name = "${props.getProperty("group.name")} $id"
         val description = null
     }
 

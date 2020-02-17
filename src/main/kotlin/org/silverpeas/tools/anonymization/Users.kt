@@ -3,7 +3,7 @@ package org.silverpeas.tools.anonymization
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.InsertStatement
 import org.jetbrains.exposed.sql.statements.UpdateStatement
-import org.silverpeas.tools.anonymization.ssv.UsersSSVFile
+import org.silverpeas.tools.anonymization.ssv.SSVLogger
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.absoluteValue
@@ -82,7 +82,7 @@ object Domain : Table("st_domain"), Anonymizing {
         row[login] = user.login
         row[password] = user.cryptedPassword
         row[company] = user.company
-        UsersSSVFile.write(user)
+        SSVLogger.ofUsers().write(user)
     }
 
     private fun renameDescriptorsFile(descriptors: Pair<String, String>, newName: String) {
@@ -212,7 +212,7 @@ object Domain : Table("st_domain"), Anonymizing {
 /**
  * The different types of users.
  */
-open class UserTable(name: String = "") : Table(name), Anonymizing {
+sealed class UserTable(name: String = "") : Table(name), Anonymizing {
     val id = integer("id")
     val firstName = varchar("firstname", 100).nullable()
     val lastName = varchar("lastname", 100)
@@ -233,7 +233,7 @@ open class UserTable(name: String = "") : Table(name), Anonymizing {
             update({ id eq user[id] }) {
                 val theUser = Settings.User(user[id])
                 update(theUser, it)
-                UsersSSVFile.write(theUser)
+                SSVLogger.ofUsers().write(theUser)
             }
         }
     }
@@ -274,7 +274,7 @@ object SilverpeasUser : UserTable("st_user") {
 /**
  * The different types of groups.
  */
-open class GroupTable(name: String = "") : Table(name), Anonymizing {
+sealed class GroupTable(name: String = "") : Table(name), Anonymizing {
     val id = integer("id")
     val parentId = integer("supergroupid").references(id).nullable()
     val name = varchar("name", 100)

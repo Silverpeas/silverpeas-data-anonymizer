@@ -2,9 +2,7 @@ package org.silverpeas.tools.anonymization
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.silverpeas.tools.anonymization.ssv.CompInstSSVFile
-import org.silverpeas.tools.anonymization.ssv.SpacesSSVFile
-import org.silverpeas.tools.anonymization.ssv.UsersSSVFile
+import org.silverpeas.tools.anonymization.ssv.SSVLogger
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.system.exitProcess
@@ -42,16 +40,12 @@ both the database and the data files will be anonymized"""
     }
 
     transaction {
-        try {
+        SSVLogger.use {
             anonymizers.forEach { (type, processor) ->
                 print("Anonymizing the ${type}...")
                 processor.invoke()
                 println(" DONE")
             }
-        } finally {
-            UsersSSVFile.close()
-            SpacesSSVFile.close()
-            CompInstSSVFile.close()
         }
     }
 }

@@ -4,19 +4,21 @@ import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
-import org.silverpeas.tools.anonymization.ssv.SpacesSSVFile
+import org.silverpeas.tools.anonymization.ssv.SSVLogger
 
 /**
  * The collaborative spaces.
  * @author mmoquillon
  */
-abstract class SpaceTable(name: String) : Table(name), Anonymizing {
-    protected val id = integer("id")
+sealed class SpaceTable(name: String) : Table(name), Anonymizing {
+    val id = integer("id")
     protected val name = varchar("name", 100)
     protected val description = varchar("description", 400).nullable()
 }
 
 object Space : SpaceTable("st_space") {
+    private val parent = integer("domainfatherid").references(id).nullable()
+
     override val primaryKey = PrimaryKey(id, name = "PK_Space")
 
     const val PERSONNAL_SPACE = "Personal space%"
@@ -24,10 +26,10 @@ object Space : SpaceTable("st_space") {
     override fun anonymize() {
         select { name notLike PERSONNAL_SPACE }.forUpdate().distinct().forEach { space ->
             update({ id eq space[id] }) {
-                val theSpace = Settings.Space("fr", space[id])
+                val theSpace = Settings.Space("fr", space[id], space[parent])
                 it[name] = theSpace.name
                 it[description] = theSpace.description
-                SpacesSSVFile.write(theSpace)
+                SSVLogger.ofSpaces().write(theSpace)
             }
         }
     }
@@ -38,10 +40,9 @@ object SpaceI18n : SpaceTable("st_spacei18n") {
 
     override fun anonymize() {
         selectAll().forUpdate().distinct().forEach { space ->
-            val theSpace = Settings.Space(space[language], space[id])
             update({ id eq space[id] }) {
-                it[name] = theSpace.name
-                it[description] = theSpace.description
+                it[name] = space[name]
+                it[description] = space[description]
             }
         }
     }
