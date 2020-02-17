@@ -17,7 +17,7 @@ sealed class SpaceTable(name: String) : Table(name), Anonymizing {
 }
 
 object Space : SpaceTable("st_space") {
-    private val parent = integer("domainfatherid").references(id).nullable()
+    val parent = integer("domainfatherid").references(id).nullable()
 
     override val primaryKey = PrimaryKey(id, name = "PK_Space")
 
@@ -40,9 +40,10 @@ object SpaceI18n : SpaceTable("st_spacei18n") {
 
     override fun anonymize() {
         selectAll().forUpdate().distinct().forEach { space ->
+            val theSpace = Settings.Space(space[language], space[SpaceI18n.id], null)
             update({ id eq space[id] }) {
-                it[name] = space[name]
-                it[description] = space[description]
+                it[name] = theSpace.name
+                it[description] = theSpace.description
             }
         }
     }

@@ -27,6 +27,7 @@ object ComponentInst : ComponentInstTable("st_componentinstance") {
         selectAll().forUpdate().distinct().forEach { component ->
             update({ id eq component[id] }) {
                 val compInst = Settings.ComponentInst(
+                    "fr",
                     component[ComponentInst.component],
                     component[ComponentInst.id],
                     component[space]
@@ -46,8 +47,14 @@ object ComponentInstI18n : ComponentInstTable("st_componentinstancei18n") {
     override fun anonymize() {
         innerJoin(ComponentInst).selectAll().forUpdate().distinct().forEach { component ->
             update({ ComponentInstI18n.id eq component[ComponentInstI18n.id] }) {
-                it[name] = component[ComponentInst.name]
-                it[description] = component[ComponentInst.description]
+                val compInst = Settings.ComponentInst(
+                    component[language],
+                    component[ComponentInst.component],
+                    component[ComponentInst.id],
+                    component[ComponentInst.space]
+                )
+                it[name] = compInst.name
+                it[description] = compInst.description
             }
         }
     }

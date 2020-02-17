@@ -40,11 +40,21 @@ object Settings {
         val parentId = if (parent == null) "" else "WA${parent}"
     }
 
-    class ComponentInst(val type: String, id: Int, space: Int?) {
+    class ComponentInst(language: String, val type: String, id: Int, space: Int?) {
         val id = "${type}${id}"
-        val name = "$type $id"
+        val name = getParametrizedName(language, id)
         val description = null
         val spaceId = if (space == null) "" else "WA${space}"
+
+        private fun getParametrizedName(language: String, id: Int): String {
+            var name = props.getProperty("app.name.${language}")
+            if (name == null || name.isEmpty()) {
+                name = "$type $id"
+            } else {
+                name += " $id"
+            }
+            return name
+        }
     }
 
     class Domain(val id: Int) {
