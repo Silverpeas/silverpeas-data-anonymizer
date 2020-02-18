@@ -1,5 +1,7 @@
 package org.silverpeas.tools.anonymization
 
+import org.silverpeas.tools.anonymization.data.*
+
 /**
  * Definitions of all of the functions to use for anonymizing the data in the Silverpeas database. Each function is
  * on a given data type. Those functions require to be registered within the dictionary of anonymization processors that

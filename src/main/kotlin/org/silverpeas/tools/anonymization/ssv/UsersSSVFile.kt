@@ -12,11 +12,12 @@ object UsersSSVFile: SSVFile("user.ssv") {
         write("Firstname",
             "Lastname",
             "Login",
-            "Password")
+            "Password",
+            "Domain")
     }
 
     fun write(user: Settings.User) {
-        write(user.firstName, user.lastName, user.login, user.plainPassword)
+        write(user.firstName, user.lastName, user.login, user.plainPassword, user.domainId?.toString() ?: "")
     }
 
 }

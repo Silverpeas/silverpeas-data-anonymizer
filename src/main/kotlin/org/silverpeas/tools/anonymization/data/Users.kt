@@ -1,11 +1,15 @@
-package org.silverpeas.tools.anonymization
+package org.silverpeas.tools.anonymization.data
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.InsertStatement
 import org.jetbrains.exposed.sql.statements.UpdateStatement
+import org.silverpeas.tools.anonymization.Anonymizing
+import org.silverpeas.tools.anonymization.Settings
 import org.silverpeas.tools.anonymization.ssv.SSVLogger
+import java.io.FileInputStream
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.*
 import kotlin.math.absoluteValue
 
 /**
@@ -42,31 +46,38 @@ object Domain : Table("st_domain"), Anonymizing {
 
     override val primaryKey = PrimaryKey(id, name = "PK_ST_Domain")
 
-    private const val DOMAIN_DRIVER = "org.silverpeas.core.admin.domain.driver.sqldriver.SQLDriver"
+    private const val AUTH_SQL_TEMPLATE = "autDomainSQL.properties"
+    private const val DOMAIN_SQL_TEMPLATE = "domainSQL.properties"
 
     /**
      * Anonymizes all the additional user domains in Silverpeas. It anonymizes also the users and the groups that are
      * part of the anonymized domain.
      */
     override fun anonymize() {
-        select { id greater 0 }.forUpdate().distinct().forEach { domain ->
+        selectAll().forUpdate().distinct().forEach { domain ->
             val newDomain = Settings.Domain(domain[id])
-            if (domain[driver].endsWith("SQLDriver")) {
-                renameSQLDomainUserAndGroupTables(domain, newDomain)
-            } else if (domain[driver].endsWith("LDAPDriver")) {
-                convertLDAPToSQLDomain(domain, newDomain)
+            if (domain[id] > 0) {
+                if (domain[driver].endsWith("SQLDriver")) {
+                    renameSQLDomainUserAndGroupTables(domain, newDomain)
+                } else if (domain[driver].endsWith("LDAPDriver")) {
+                    convertLDAPToSQLDomain(domain, newDomain)
+                }
+                update({ id eq domain[id] }) {
+                    it[name] = newDomain.name
+                    it[description] = newDomain.description
+                    it[serverUrl] = newDomain.serverUrl
+                    it[driver] = newDomain.driver
+                    it[authServer] = newDomain.authServerName
+                    it[descriptor] = newDomain.descriptor
+                }
+                val domainDescName = domain[descriptor].removePrefix("org.silverpeas.domains.") + ".properties"
+                val authDescName = domain[authServer] + ".properties"
+                convertDescriptorsFile(Pair(domainDescName, authDescName), newDomain)
+            } else {
+                update {
+                    it[serverUrl] = newDomain.serverUrl
+                }
             }
-            update({ id eq domain[id] }) {
-                it[name] = newDomain.name
-                it[description] = newDomain.description
-                it[serverUrl] = newDomain.serverUrl
-                it[driver] = newDomain.driver
-                it[authServer] = newDomain.authServerName
-                it[descriptor] = newDomain.descriptor
-            }
-            val domainDesc = domain[descriptor].removePrefix("org.silverpeas.domains.") + ".properties"
-            val authDesc = domain[authServer] + ".properties"
-            renameDescriptorsFile(Pair(domainDesc, authDesc), newDomain.technicalName)
         }
     }
 
@@ -75,40 +86,52 @@ object Domain : Table("st_domain"), Anonymizing {
     }
 
     private fun DomainUserTable.setCommonUserFields(row: InsertStatement<Number>, userId: Int) {
-        val user = Settings.User(userId)
+        val user = Settings.User(userId, null)
         row[firstName] = user.firstName
         row[lastName] = user.lastName
         row[email] = user.email
         row[login] = user.login
         row[password] = user.cryptedPassword
         row[company] = user.company
-        SSVLogger.ofUsers().write(user)
     }
 
-    private fun renameDescriptorsFile(descriptors: Pair<String, String>, newName: String) {
+    private fun convertDescriptorsFile(descriptors: Pair<String, String>, newDomain: Settings.Domain) {
         if (Settings.isSilverpeasHomeDefined()) {
             val propertiesPath = Paths.get(Settings.silverpeasHome(), "properties", "org", "silverpeas")
 
             val domainDefPath = propertiesPath.resolve(Paths.get("domains", descriptors.first))
-            val newDomainDefPath = domainDefPath.resolveSibling("domain${newName}.properties")
+            val domainTemplatePath = domainDefPath.resolveSibling(DOMAIN_SQL_TEMPLATE)
+            val newDomainDefPath = domainDefPath.resolveSibling(newDomain.descriptorName)
 
             val authDefPath = propertiesPath.resolve(Paths.get("authentication", descriptors.second))
-            val newAuthDefPath = authDefPath.resolveSibling("auth${newName}.properties")
+            val authTemplatePath = authDefPath.resolveSibling(AUTH_SQL_TEMPLATE)
+            val newAuthDefPath = authDefPath.resolveSibling(newDomain.authDescriptorName)
 
             if (!Files.exists(domainDefPath) || !Files.exists(authDefPath)) {
                 println("The domain descriptors for ${descriptors.first} doesn't exist in the file system: do nothing")
             } else {
-                Files.move(domainDefPath, newDomainDefPath)
-                Files.move(authDefPath, newAuthDefPath)
+                val props = Properties()
+
+                props.load(FileInputStream(domainTemplatePath.toFile()))
+                props.setProperty("database.SQLUserTableName", newDomain.usersTableName)
+                props.setProperty("database.SQLGroupTableName", newDomain.groupsTableName)
+                props.setProperty("database.SQLUserGroupTableName", newDomain.groupUserRelsTableName)
+                props.store(newDomainDefPath.toFile().writer(Charsets.ISO_8859_1), null)
+
+                props.load(FileInputStream(authTemplatePath.toFile()))
+                props.setProperty("autServer0.SQLUserTableName", newDomain.usersTableName)
+                props.store(newAuthDefPath.toFile().writer(Charsets.ISO_8859_1), null)
+
+                Files.delete(domainDefPath)
+                Files.delete(authDefPath)
             }
         }
     }
 
     private fun convertLDAPToSQLDomain(domain: ResultRow, newDomain: Settings.Domain) {
-        val tableNamePrefix = "domain${newDomain.technicalName}_"
-        val newUserTable = DomainUserTable("${tableNamePrefix}user")
-        val newGroupTable = DomainGroupTable("${tableNamePrefix}group")
-        val newGroupUserRelTable = object : Table("${tableNamePrefix}group_user_rel") {
+        val newUserTable = DomainUserTable(newDomain.usersTableName)
+        val newGroupTable = DomainGroupTable(newDomain.groupsTableName)
+        val newGroupUserRelTable = object : Table(newDomain.groupUserRelsTableName) {
             val userId = integer("userid") references newUserTable.id
             val groupId = integer("groupid") references newGroupTable.id
         }
@@ -116,7 +139,8 @@ object Domain : Table("st_domain"), Anonymizing {
 
         SilverpeasUser.select { (SilverpeasUser.domainId eq domain[id]) and (SilverpeasUser.state neq "DELETED") }
             .forUpdate().distinct().forEach { user ->
-                val specificId = user[SilverpeasUser.specificId].toIntOrDefault(Domain::encodeToInt)
+                val specificId = user[SilverpeasUser.specificId].toIntOrDefault(
+                    Domain::encodeToInt)
                 newUserTable.insert { row ->
                     row[id] = specificId
                     setCommonUserFields(row, user[SilverpeasUser.id])
@@ -137,7 +161,7 @@ object Domain : Table("st_domain"), Anonymizing {
                 parent = value?.toIntOrDefault(Domain::encodeToInt)
             }
 
-            val theGroup =  Settings.Group(group[SilverpeasGroup.id])
+            val theGroup = Settings.Group(group[SilverpeasGroup.id])
             newGroupTable.insert { row ->
                 row[id] = specificId
                 row[parentId] = parent
@@ -154,29 +178,34 @@ object Domain : Table("st_domain"), Anonymizing {
             val userId = integer("userid") references SilverpeasUser.id
             val groupId = integer("groupid") references SilverpeasGroup.id
         }
-        groupUserRelTable.innerJoin(SilverpeasUser).innerJoin(SilverpeasGroup).select {
+        groupUserRelTable.innerJoin(SilverpeasUser).innerJoin(
+            SilverpeasGroup
+        ).select {
             (SilverpeasUser.domainId eq domain[id]) and (SilverpeasGroup.domainId eq domain[id])
         }.forEach { rel ->
             newGroupUserRelTable.insert { row ->
-                row[userId] = rel[SilverpeasUser.specificId].toIntOrDefault(Domain::encodeToInt)
-                row[groupId] = rel[SilverpeasGroup.specificId].toIntOrDefault(Domain::encodeToInt)
+                row[newGroupUserRelTable.userId] = rel[SilverpeasUser.specificId].toIntOrDefault(
+                    Domain::encodeToInt)
+                row[newGroupUserRelTable.groupId] = rel[SilverpeasGroup.specificId].toIntOrDefault(
+                    Domain::encodeToInt)
             }
         }
     }
 
     private fun renameSQLDomainUserAndGroupTables(domain: ResultRow, newDomain: Settings.Domain) {
-        val newTableNamePrefix = "domain${newDomain.technicalName}_"
-        val newUserTable = DomainUserTable("${newTableNamePrefix}user")
-        val newGroupTable = DomainGroupTable("${newTableNamePrefix}group")
-        val newGroupUserRelTable = object : Table("${newTableNamePrefix}group_user_rel") {
+        val newUserTable = DomainUserTable(newDomain.usersTableName)
+        val newGroupTable = DomainGroupTable(newDomain.groupsTableName)
+        val newGroupUserRelTable = object : Table(newDomain.groupUserRelsTableName) {
             val userId = integer("userid") references newUserTable.id
             val groupId = integer("groupid") references newGroupTable.id
         }
         SchemaUtils.create(newUserTable, newGroupTable, newGroupUserRelTable)
 
         val tableNamePrefix = domain[descriptor].removePrefix("org.silverpeas.domains.").toLowerCase()
-        val userTable = DomainUserTable("${tableNamePrefix}_user")
-        val groupTable = DomainGroupTable("${tableNamePrefix}_group")
+        val userTable =
+            DomainUserTable("${tableNamePrefix}_user")
+        val groupTable =
+            DomainGroupTable("${tableNamePrefix}_group")
         val groupUserRelTable = object : Table("${tableNamePrefix}_group_user_rel") {
             val userId = integer("userid") references userTable.id
             val groupId = integer("groupid") references groupTable.id
@@ -212,28 +241,22 @@ object Domain : Table("st_domain"), Anonymizing {
 /**
  * The different types of users.
  */
-sealed class UserTable(name: String = "") : Table(name), Anonymizing {
+sealed class UserTable(name: String = "") : Table(name),
+    Anonymizing {
     val id = integer("id")
     val firstName = varchar("firstname", 100).nullable()
     val lastName = varchar("lastname", 100)
-    val email = varchar("email", 100).nullable()
+    val email = varchar("email", 200).nullable()
     val login = varchar("login", 50)
 
     override val primaryKey = PrimaryKey(id)
 
-    protected open fun update(user: Settings.User, stmt: UpdateStatement) {
-        stmt[firstName] = user.firstName
-        stmt[lastName] = user.lastName
-        stmt[email] = user.email
-        stmt[login] = user.login
-    }
+    protected abstract fun update(row: ResultRow, stmt: UpdateStatement)
 
     override fun anonymize() {
         selectAll().forUpdate().distinct().forEach { user ->
             update({ id eq user[id] }) {
-                val theUser = Settings.User(user[id])
-                update(theUser, it)
-                SSVLogger.ofUsers().write(theUser)
+                update(user, it)
             }
         }
     }
@@ -244,19 +267,19 @@ sealed class UserTable(name: String = "") : Table(name), Anonymizing {
  */
 open class DomainUserTable(name: String = "") : UserTable(name) {
     val password = varchar("password", 123).nullable()
-    val company = varchar("company", 50).nullable()
-    val phone = varchar("phone", 20).nullable()
-    val homePhone = varchar("homephone", 20).nullable()
-    val cellPhone = varchar("cellphone", 20).nullable()
-    val fax = varchar("fax", 20).nullable()
-    val address = varchar("address", 500).nullable()
+    val isPasswordValid = char("passwordvalid").default('Y')
     val title = varchar("title", 100).nullable()
+    val company = varchar("company", 100).nullable()
     val position = varchar("position", 100).nullable()
     val boss = varchar("boss", 100).nullable()
-    val isPasswordValid = char("passwordvalid").default('Y')
+    val phone = varchar("phone", 20).nullable()
+    val homePhone = varchar("homephone", 20).nullable()
+    val fax = varchar("fax", 20).nullable()
+    val cellPhone = varchar("cellphone", 20).nullable()
+    val address = varchar("address", 500).nullable()
 
-    override fun update(user: Settings.User, stmt: UpdateStatement) {
-        super.update(user, stmt)
+    override fun update(row: ResultRow, stmt: UpdateStatement) {
+        val user = Settings.User(row[id], null)
         stmt[password] = user.cryptedPassword
         stmt[company] = user.company
     }
@@ -269,12 +292,26 @@ object SilverpeasUser : UserTable("st_user") {
     val domainId = integer("domainid")
     val specificId = varchar("specificid", 500)
     val state = varchar("state", 30)
+
+    override fun update(row: ResultRow, stmt: UpdateStatement) {
+        val user = Settings.User(
+            row[id],
+            row[domainId]
+        )
+        stmt[firstName] = user.firstName
+        stmt[lastName] = user.lastName
+        stmt[email] = user.email
+        stmt[login] = user.login
+
+        SSVLogger.ofUsers().write(user)
+    }
 }
 
 /**
  * The different types of groups.
  */
-sealed class GroupTable(name: String = "") : Table(name), Anonymizing {
+sealed class GroupTable(name: String = "") : Table(name),
+    Anonymizing {
     val id = integer("id")
     val parentId = integer("supergroupid").references(id).nullable()
     val name = varchar("name", 100)

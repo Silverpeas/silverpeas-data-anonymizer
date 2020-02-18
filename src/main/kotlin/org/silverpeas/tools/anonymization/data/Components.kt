@@ -1,8 +1,10 @@
-package org.silverpeas.tools.anonymization
+package org.silverpeas.tools.anonymization.data
 
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
+import org.silverpeas.tools.anonymization.Anonymizing
+import org.silverpeas.tools.anonymization.Settings
 import org.silverpeas.tools.anonymization.ssv.SSVLogger
 
 /**
@@ -11,7 +13,8 @@ import org.silverpeas.tools.anonymization.ssv.SSVLogger
  * Kmelia component instance provides the functionalities of an EDM.
  * @author mmoquillon
  */
-sealed class ComponentInstTable(name: String) : Table(name), Anonymizing {
+sealed class ComponentInstTable(name: String) : Table(name),
+    Anonymizing {
     val id = integer("id")
     val name = varchar("name", 100)
     val description = varchar("description", 400).nullable()
@@ -29,7 +32,7 @@ object ComponentInst : ComponentInstTable("st_componentinstance") {
                 val compInst = Settings.ComponentInst(
                     "fr",
                     component[ComponentInst.component],
-                    component[ComponentInst.id],
+                    component[id],
                     component[space]
                 )
                 it[ComponentInstI18n.name] = compInst.name

@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
             System.err.println("The custom settings file isn't found at '${customSettingsPath.toAbsolutePath()}'")
             exitProcess(1)
         }
-        Settings.apply(customSettingsPath)
+        Settings.load(customSettingsPath)
     }
 
     val database = Settings.Database()
