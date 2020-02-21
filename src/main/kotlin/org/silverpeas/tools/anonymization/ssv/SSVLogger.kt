@@ -12,7 +12,9 @@ object SSVLogger : Closeable {
     private val ssvfiles = listOf(
         ofUsers(),
         ofSpaces(),
-        ofComponentInstances()
+        ofComponentInstances(),
+        ofNodes(),
+        ofPublications()
     )
 
     init {
@@ -24,6 +26,10 @@ object SSVLogger : Closeable {
     fun ofSpaces() = SpacesSSVFile
 
     fun ofComponentInstances() = CompInstSSVFile
+
+    fun ofNodes() = NodesSSVFile
+
+    fun ofPublications() = PublicationsSSVFile
 
     override fun close() {
         ssvfiles.forEach { it.close() }

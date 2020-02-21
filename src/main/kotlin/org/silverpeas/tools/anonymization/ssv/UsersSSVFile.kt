@@ -1,12 +1,12 @@
 package org.silverpeas.tools.anonymization.ssv
 
-import org.silverpeas.tools.anonymization.Settings
+import org.silverpeas.tools.anonymization.model.AnonymousUser
 
 /**
  * A SSV file in which all the users scanned in the database will be saved.
  * @author mmoquillon
  */
-object UsersSSVFile: SSVFile("user.ssv") {
+object UsersSSVFile: SSVFile("users.ssv") {
 
     override fun postOpening() {
         write("Firstname",
@@ -16,7 +16,7 @@ object UsersSSVFile: SSVFile("user.ssv") {
             "Domain")
     }
 
-    fun write(user: Settings.User) {
+    fun write(user: AnonymousUser) {
         write(user.firstName, user.lastName, user.login, user.plainPassword, user.domainId?.toString() ?: "")
     }
 

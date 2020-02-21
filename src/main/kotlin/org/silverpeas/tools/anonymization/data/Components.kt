@@ -4,7 +4,7 @@ import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
 import org.silverpeas.tools.anonymization.Anonymizing
-import org.silverpeas.tools.anonymization.Settings
+import org.silverpeas.tools.anonymization.model.AnonymousAppInst
 import org.silverpeas.tools.anonymization.ssv.SSVLogger
 
 /**
@@ -29,15 +29,14 @@ object ComponentInst : ComponentInstTable("st_componentinstance") {
     override fun anonymize() {
         selectAll().forUpdate().distinct().forEach { component ->
             update({ id eq component[id] }) {
-                val compInst = Settings.ComponentInst(
-                    "fr",
+                val anoAppInst = AnonymousAppInst(
                     component[ComponentInst.component],
                     component[id],
-                    component[space]
+                    space = component[space]
                 )
-                it[ComponentInstI18n.name] = compInst.name
-                it[ComponentInstI18n.description] = compInst.description
-                SSVLogger.ofComponentInstances().write(compInst)
+                it[ComponentInstI18n.name] = anoAppInst.name
+                it[ComponentInstI18n.description] = anoAppInst.description
+                SSVLogger.ofComponentInstances().write(anoAppInst)
             }
         }
     }
@@ -50,14 +49,14 @@ object ComponentInstI18n : ComponentInstTable("st_componentinstancei18n") {
     override fun anonymize() {
         innerJoin(ComponentInst).selectAll().forUpdate().distinct().forEach { component ->
             update({ ComponentInstI18n.id eq component[ComponentInstI18n.id] }) {
-                val compInst = Settings.ComponentInst(
-                    component[language],
+                val anoAppInst = AnonymousAppInst(
                     component[ComponentInst.component],
                     component[ComponentInst.id],
-                    component[ComponentInst.space]
+                    space = component[ComponentInst.space],
+                    language = component[language]
                 )
-                it[name] = compInst.name
-                it[description] = compInst.description
+                it[name] = anoAppInst.name
+                it[description] = anoAppInst.description
             }
         }
     }

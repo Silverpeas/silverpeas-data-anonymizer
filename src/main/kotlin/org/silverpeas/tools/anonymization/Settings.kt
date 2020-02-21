@@ -1,6 +1,5 @@
 package org.silverpeas.tools.anonymization
 
-import org.apache.commons.codec.digest.Crypt
 import java.io.FileInputStream
 import java.nio.file.Path
 import java.util.*
@@ -11,9 +10,6 @@ import java.util.*
  * @author mmoquillon
  */
 object Settings {
-
-    private const val SALTCHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890/."
-    private val random: Random = Random()
 
     private val props = Properties()
 
@@ -45,90 +41,120 @@ object Settings {
     fun silverpeasHome() = props.getProperty("silverpeas.home") ?: ""
 
     /**
-     * Gets the settings in the given language for the space identified by the specified identifier and with the
-     * given space parent identifier.
+     * The settings about the anonymization of the domains
      */
-    class Space(language: String, id: Int, parent: Int?) {
-        val id = "WA${id}"
-        val name = "${props.getProperty("space.name.${language}")} $id"
-        val description = null
-        val parentId = if (parent == null) "" else "WA${parent}"
+    object domains {
+        val namePrefix = props.getProperty("domain.name")
+        val serverUrl = props.getProperty("domain.serverUrl") ?: ""
     }
 
     /**
-     * Gets the settings in the given language for the component instance of the specified type and identified by the
-     * given identifier and with as parent the specified space identifier.
+     * The settings about the anonymization of the users
      */
-    class ComponentInst(language: String, val type: String, id: Int, space: Int?) {
-        val id = "${type}${id}"
-        val name = getParametrizedName(language, id)
-        val description = null
-        val spaceId = if (space == null) "" else "WA${space}"
-
-        private fun getParametrizedName(language: String, id: Int): String {
-            var name = props.getProperty("app.name.${language}")
-            if (name == null || name.isEmpty()) {
-                name = "$type $id"
-            } else {
-                name += " $id"
-            }
-            return name
-        }
-    }
-
-    /**
-     * Gets the settings for the domain identified with the specified identifier.
-     */
-    class Domain(id: Int) {
-        val name = "${props.getProperty("domain.name")} $id"
-        val description = null
-        val serverUrl = null
-        val driver = "org.silverpeas.core.admin.domain.driver.sqldriver.SQLDriver"
-        private val technicalName = props.getProperty("domain.name") + id
-        val authServerName = "autDomain${technicalName}"
-        val descriptor = "org.silverpeas.domains.domain${technicalName}"
-        private val tablePrefix = "domain${technicalName}_"
-        val usersTableName = tablePrefix + "user"
-        val groupsTableName = tablePrefix + "group"
-        val groupUserRelsTableName = tablePrefix + "group_user_rel"
-        val authDescriptorName = "$authServerName.properties"
-        val descriptorName = "domain${technicalName}.properties"
-    }
-
-    /**
-     * Gets the settings for the user in the given domain and identified with the specified identifier.
-     */
-    class User(id: Int, val domainId: Int?) {
-        val firstName = "${props.getProperty("user.firstName")} $id"
-        val lastName = "${props.getProperty("user.lastName")} $id"
-        val email: String = props.getProperty("user.email")
-        val login = "${props.getProperty("user.firstName")}${id}.${props.getProperty("user.lastName")}${id}"
-        val plainPassword: String = props.getProperty("user.password")
-        val cryptedPassword: String = Crypt.crypt(plainPassword, randomSalt())
+    object users {
+        val firstNamePrefix = props.getProperty("user.firstName")
+        val lastNamePrefix = props.getProperty("user.lastName")
+        val email = props.getProperty("user.email")
+        val password = props.getProperty("user.password")
         val company = "Silverpeas"
-
-        private fun randomSalt(): String {
-            val saltBuf = StringBuilder("$6$")
-            while (saltBuf.length < 16) {
-                val index = (random.nextFloat() * SALTCHARS.length).toInt()
-                saltBuf.append(SALTCHARS.substring(index, index + 1))
-            }
-            return saltBuf.toString()
-        }
     }
 
     /**
-     * Gets the settings for the group identified by the specified identifier.
+     * The settings about the anonymization of the groups
      */
-    class Group(val id: Int) {
-        val name = "${props.getProperty("group.name")} $id"
+    object groups {
+        val namePrefix = props.getProperty("group.name")
         val description = null
     }
 
     /**
-     * Gets the settings of the database in which are stored the data to anonymize.
+     * The settings about the anonymization of the collaborative spaces
      */
-    class Database {
+    object spaces {
+        val namePrefix = mapOf(
+            "fr" to props.getProperty("space.name.fr"),
+            "en" to props.getProperty("space.name.en")
+        )
+
+        val description = mapOf(
+            "fr" to null,
+            "en" to null
+        )
+    }
+
+    /**
+     * The settings about the anonymization of the component instances
+     */
+    object appInsts {
+        val namePrefix = mapOf(
+            "fr" to props.getProperty("app.name.fr"),
+            "en" to props.getProperty("app.name.fr")
+        )
+
+        val description = mapOf(
+            "fr" to null,
+            "en" to null
+        )
+    }
+
+    object folders {
+        val namePrefix = mapOf(
+            "fr" to props.getProperty("node.folder.name.fr"),
+            "en" to props.getProperty("node.folder.name.en")
+        )
+
+        val description = mapOf(
+            "fr" to props.getProperty("node.folder.name.fr"),
+            "en" to props.getProperty("node.folder.name.en")
+        )
+    }
+
+    object albums {
+        val namePrefix = mapOf(
+            "fr" to props.getProperty("node.album.name.fr"),
+            "en" to props.getProperty("node.album.name.en")
+        )
+
+        val description = mapOf(
+            "fr" to props.getProperty("node.album.name.fr"),
+            "en" to props.getProperty("node.album.name.en")
+        )
+
+    }
+
+    object categories {
+        val namePrefix = mapOf(
+            "fr" to props.getProperty("node.category.name.fr"),
+            "en" to props.getProperty("node.category.name.en")
+        )
+
+        val description = mapOf(
+            "fr" to props.getProperty("node.category.name.fr"),
+            "en" to props.getProperty("node.category.name.en")
+        )
+    }
+
+    object publications {
+        val namePrefix = mapOf(
+            "fr" to props.getProperty("publication.name.fr"),
+            "en" to props.getProperty("publication.name.en")
+        )
+
+        val description = mapOf(
+            "fr" to props.getProperty("publication.name.fr"),
+            "en" to props.getProperty("publication.name.en")
+        )
+
+        val keywords = mapOf(
+            "fr" to null,
+            "en" to null
+        )
+    }
+
+    /**
+     * The settings of the database in which are stored the data to anonymize.
+     */
+    object database {
         val url: String = props.getProperty("db.jdbc.url")
         val driver: String = props.getProperty("db.jdbc.driver")
         val login: String = props.getProperty("db.login")

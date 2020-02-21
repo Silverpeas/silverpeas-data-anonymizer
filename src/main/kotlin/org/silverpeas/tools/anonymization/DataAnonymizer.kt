@@ -22,8 +22,12 @@ fun main(args: Array<String>) {
         Settings.load(customSettingsPath)
     }
 
-    val database = Settings.Database()
-    Database.connect(database.url, database.driver, database.login, database.password)
+    Database.connect(
+        Settings.database.url,
+        Settings.database.driver,
+        Settings.database.login,
+        Settings.database.password
+    )
 
     if (Settings.isSilverpeasHomeDefined()) {
         val silverpeasHomePath = Paths.get(Settings.silverpeasHome())
@@ -42,9 +46,16 @@ both the database and the data files will be anonymized"""
     transaction {
         SSVLogger.use {
             anonymizers.forEach { (type, processor) ->
-                print("Anonymizing the ${type}...")
-                processor.invoke()
-                println(" DONE")
+                try {
+                    print("Anonymizing the ${type}...")
+                    processor.invoke()
+                    println(" DONE")
+                } catch (e: Exception) {
+                    println(" ERROR: " + e.message)
+                    this.rollback()
+                    e.printStackTrace(System.err)
+                    exitProcess(1)
+                }
             }
         }
     }

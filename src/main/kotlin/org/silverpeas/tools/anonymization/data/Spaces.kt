@@ -5,7 +5,7 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
 import org.silverpeas.tools.anonymization.Anonymizing
-import org.silverpeas.tools.anonymization.Settings
+import org.silverpeas.tools.anonymization.model.AnonymousSpace
 import org.silverpeas.tools.anonymization.ssv.SSVLogger
 
 /**
@@ -28,14 +28,10 @@ object Space : SpaceTable("st_space") {
     override fun anonymize() {
         select { name notLike PERSONNAL_SPACE }.forUpdate().distinct().forEach { space ->
             update({ id eq space[id] }) {
-                val theSpace = Settings.Space(
-                    "fr",
-                    space[id],
-                    space[parent]
-                )
-                it[name] = theSpace.name
-                it[description] = theSpace.description
-                SSVLogger.ofSpaces().write(theSpace)
+                val anoSpace = AnonymousSpace(space[id], parent = space[parent])
+                it[name] = anoSpace.name
+                it[description] = anoSpace.description
+                SSVLogger.ofSpaces().write(anoSpace)
             }
         }
     }
@@ -46,14 +42,10 @@ object SpaceI18n : SpaceTable("st_spacei18n") {
 
     override fun anonymize() {
         selectAll().forUpdate().distinct().forEach { space ->
-            val theSpace = Settings.Space(
-                space[language],
-                space[id],
-                null
-            )
+            val anoSpace = AnonymousSpace(space[id], language =  space[language])
             update({ id eq space[id] }) {
-                it[name] = theSpace.name
-                it[description] = theSpace.description
+                it[name] = anoSpace.name
+                it[description] = anoSpace.description
             }
         }
     }

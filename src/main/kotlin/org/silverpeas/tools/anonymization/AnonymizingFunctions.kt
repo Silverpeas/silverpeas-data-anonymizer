@@ -19,6 +19,21 @@ val anonymizers = mapOf(
         ComponentInstI18n.anonymize()
     },
     "domains" to Domain::anonymize,
-    "users" to SilverpeasUser::anonymize,
-    "groups" to SilverpeasGroup::anonymize
+    "users" to {
+        SilverpeasUser.anonymize()
+        SilverpeasDomainUser.anonymize()
+    },
+    "groups" to {
+        SilverpeasGroup.anonymize()
+        SilverpeasDomainGroup.anonymize()
+    },
+    "nodes" to {
+        Node.anonymize()
+        NodeI18n.anonymize()
+    },
+    "publication" to {
+        Publication.anonymize()
+
+        PublicationI18n.anonymize()
+    }
 )

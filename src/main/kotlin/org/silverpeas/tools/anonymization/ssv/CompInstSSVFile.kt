@@ -1,6 +1,6 @@
 package org.silverpeas.tools.anonymization.ssv
 
-import org.silverpeas.tools.anonymization.Settings
+import org.silverpeas.tools.anonymization.model.AnonymousAppInst
 
 /**
  * SSV file to save component instances data ready to be used in tests against a running Silverpeas platform.
@@ -9,11 +9,11 @@ import org.silverpeas.tools.anonymization.Settings
 object CompInstSSVFile: SSVFile("components.ssv") {
 
     override fun postOpening() {
-        write("Id", "Type", "Space")
+        write("Id", "Application", "Space")
     }
 
-    fun write(compInst: Settings.ComponentInst) {
-        write(compInst.id, compInst.type, compInst.spaceId)
+    fun write(compInst: AnonymousAppInst) {
+        write(compInst.id, compInst.app, compInst.spaceId)
     }
 
 }

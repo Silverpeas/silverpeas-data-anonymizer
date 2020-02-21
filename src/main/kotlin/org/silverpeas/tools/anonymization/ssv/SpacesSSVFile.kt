@@ -1,6 +1,6 @@
 package org.silverpeas.tools.anonymization.ssv
 
-import org.silverpeas.tools.anonymization.Settings
+import org.silverpeas.tools.anonymization.model.AnonymousSpace
 
 /**
  * SSV file to save collaborative spaces data ready to be used in tests against a running Silverpeas platform.
@@ -12,7 +12,7 @@ object SpacesSSVFile: SSVFile("spaces.ssv") {
         write("Id", "Parent")
     }
 
-    fun write(space: Settings.Space) {
+    fun write(space: AnonymousSpace) {
         write(space.id, space.parentId)
     }
 
