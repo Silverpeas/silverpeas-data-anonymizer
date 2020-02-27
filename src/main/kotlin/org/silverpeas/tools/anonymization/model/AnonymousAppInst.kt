@@ -6,9 +6,9 @@ import org.silverpeas.tools.anonymization.Settings
  * An anonymous application instance. It represents the result of the anonymizing of an application instance.
  * @author mmoquillon
  */
-class AnonymousAppInst(val app: String, id: Int, space: Int? = null, language: String = "fr") {
-    val id = "${app}${id}"
-    val name = getParametrizedName(language, id)
+class AnonymousAppInst(val app: String, val localId: Int, space: Int? = null, language: String = "fr") {
+    val id = "${app}${localId}"
+    val name = getParametrizedName(language, localId)
     val description = Settings.appInsts.description[language]
     val spaceId = if (space == null) "" else "WA${space}"
 

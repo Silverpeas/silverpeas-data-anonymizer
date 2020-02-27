@@ -9,11 +9,11 @@ import org.silverpeas.tools.anonymization.model.AnonymousAppInst
 object CompInstSSVFile: SSVFile("components.ssv") {
 
     override fun postOpening() {
-        write("Id", "Application", "Space")
+        write("TechId", "Id", "Application", "Space")
     }
 
     fun write(compInst: AnonymousAppInst) {
-        write(compInst.id, compInst.app, compInst.spaceId)
+        write(compInst.localId.toString(), compInst.id, compInst.app, compInst.spaceId)
     }
 
 }

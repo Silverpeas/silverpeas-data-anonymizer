@@ -31,4 +31,5 @@ class AnonymousUser(val id: Int, var domainId: Int? = null) {
     val plainPassword: String = Settings.users.password
     val cryptedPassword: String = Crypt.crypt(plainPassword, randomSalt())
     val company = Settings.users.company
+    val isPlatFormAdmin = id == 0 && domainId == 0
 }

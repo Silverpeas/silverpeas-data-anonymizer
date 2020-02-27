@@ -9,15 +9,25 @@ import org.silverpeas.tools.anonymization.model.AnonymousUser
 object UsersSSVFile: SSVFile("users.ssv") {
 
     override fun postOpening() {
-        write("Firstname",
+        write(
+            "Id",
+            "Firstname",
             "Lastname",
             "Login",
             "Password",
-            "Domain")
+            "Domain"
+        )
     }
 
     fun write(user: AnonymousUser) {
-        write(user.firstName, user.lastName, user.login, user.plainPassword, user.domainId?.toString() ?: "")
+        write(
+            user.id.toString(),
+            user.firstName,
+            user.lastName,
+            user.login,
+            user.plainPassword,
+            user.domainId?.toString() ?: ""
+        )
     }
 
 }

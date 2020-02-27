@@ -20,9 +20,8 @@ sealed class AnonymousNode(val id: Int, val instanceId: String, val parent: Int 
 
     companion object {
         val NO_PARENT = -1
-        val ROOT = 0
 
-        fun of(instanceId: String) = when (instanceId.replace("\\d+", "")) {
+        fun of(instanceId: String) = when (instanceId.replace(Regex("\\d+"), "")) {
             "kmelia", "kmax", "toolbox" -> Factory(AnonymousFolder::class, instanceId)
             "gallery" -> Factory(AnonymousAlbum::class, instanceId)
             else -> Factory(AnonymousCategory::class, instanceId)
@@ -31,7 +30,6 @@ sealed class AnonymousNode(val id: Int, val instanceId: String, val parent: Int 
 
     abstract val name: String
     abstract val description: String
-
 }
 
 class AnonymousFolder(id: Int, instanceId: String, parent: Int = NO_PARENT, language: String) :

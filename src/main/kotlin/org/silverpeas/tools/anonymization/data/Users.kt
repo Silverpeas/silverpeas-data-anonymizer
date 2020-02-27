@@ -60,11 +60,7 @@ object Domain : Table("st_domain"), Anonymizing {
         selectAll().forUpdate().distinct().forEach { domain ->
             val anoDomain = AnonymousDomain(domain[id])
             if (domain[id] > 0) {
-                if (domain[driver].endsWith("SQLDriver")) {
-                    renameSQLDomainUserAndGroupTables(domain, anoDomain)
-                } else if (domain[driver].endsWith("LDAPDriver")) {
-                    convertLDAPToSQLDomain(domain, anoDomain)
-                }
+                anonymizeDomainSpecificData(domain, anoDomain)
                 update({ id eq domain[id] }) {
                     it[name] = anoDomain.name
                     it[description] = anoDomain.description
@@ -130,7 +126,7 @@ object Domain : Table("st_domain"), Anonymizing {
         }
     }
 
-    private fun convertLDAPToSQLDomain(domain: ResultRow, newDomain: AnonymousDomain) {
+    private fun anonymizeDomainSpecificData(domain: ResultRow, newDomain: AnonymousDomain) {
         val newUserTable = DomainUserTable(newDomain.usersTableName)
         val newGroupTable = DomainGroupTable(newDomain.groupsTableName)
         val newGroupUserRelTable = object : Table(newDomain.groupUserRelsTableName) {
@@ -176,68 +172,31 @@ object Domain : Table("st_domain"), Anonymizing {
             }
         }
 
-        val groupUserRelTable = object : Table("st_group_user_rel") {
-            val userId = integer("userid") references SilverpeasUser.id
-            val groupId = integer("groupid") references SilverpeasGroup.id
-        }
-        groupUserRelTable.innerJoin(SilverpeasUser).innerJoin(
+        SilverpeasGroupUserRelTable.innerJoin(SilverpeasUser).innerJoin(
             SilverpeasGroup
         ).select {
             (SilverpeasUser.domainId eq domain[id]) and (SilverpeasGroup.domainId eq domain[id])
         }.forEach { rel ->
             newGroupUserRelTable.insert { row ->
                 row[newGroupUserRelTable.userId] = rel[SilverpeasUser.specificId].toIntOrDefault(
-                    Domain::encodeToInt)
+                    Domain::encodeToInt
+                )
                 row[newGroupUserRelTable.groupId] = rel[SilverpeasGroup.specificId].toIntOrDefault(
-                    Domain::encodeToInt)
-            }
-        }
-    }
-
-    private fun renameSQLDomainUserAndGroupTables(domain: ResultRow, anoDomain: AnonymousDomain) {
-        val newUserTable = DomainUserTable(anoDomain.usersTableName)
-        val newGroupTable = DomainGroupTable(anoDomain.groupsTableName)
-        val newGroupUserRelTable = object : Table(anoDomain.groupUserRelsTableName) {
-            val userId = integer("userid") references newUserTable.id
-            val groupId = integer("groupid") references newGroupTable.id
-        }
-        SchemaUtils.create(newUserTable, newGroupTable, newGroupUserRelTable)
-
-        val tableNamePrefix = domain[descriptor].removePrefix("org.silverpeas.domains.").toLowerCase()
-        val userTable =
-            DomainUserTable("${tableNamePrefix}_user")
-        val groupTable =
-            DomainGroupTable("${tableNamePrefix}_group")
-        val groupUserRelTable = object : Table("${tableNamePrefix}_group_user_rel") {
-            val userId = integer("userid") references userTable.id
-            val groupId = integer("groupid") references groupTable.id
-        }
-        userTable.selectAll().distinct().forEach { user ->
-            val anoUser = AnonymousUser(user[userTable.id])
-            newUserTable.insert { row ->
-                row[id] = anoUser.id
-                setCommonUserFields(anoUser, row)
-                row[title] = user[userTable.title]
-                row[position] = user[userTable.position]
-            }
-        }
-        groupTable.selectAll().distinct().forEach { group ->
-            val anoGroup = AnonymousGroup(group[groupTable.id])
-            newGroupTable.insert { row ->
-                row[id] = anoGroup.id
-                row[parentId] = group[groupTable.parentId]
-                row[name] = anoGroup.name
-                row[description] = anoGroup.description
-            }
-        }
-        groupUserRelTable.selectAll().distinct().forEach { rel ->
-            newGroupUserRelTable.insert { row ->
-                row[userId] = rel[groupUserRelTable.userId]
-                row[groupId] = rel[groupUserRelTable.groupId]
+                    Domain::encodeToInt
+                )
             }
         }
 
-        SchemaUtils.drop(groupUserRelTable, userTable, groupTable)
+        if (domain[driver].endsWith("SQLDriver")) {
+            val tableNamePrefix = domain[descriptor].removePrefix("org.silverpeas.domains.").toLowerCase()
+            val userTable = DomainUserTable("${tableNamePrefix}_user")
+            val groupTable = DomainGroupTable("${tableNamePrefix}_group")
+            val groupUserRelTable = object : Table("${tableNamePrefix}_group_user_rel") {
+                val userId = integer("userid") references userTable.id
+                val groupId = integer("groupid") references groupTable.id
+            }
+            SchemaUtils.drop(groupUserRelTable, userTable, groupTable)
+        }
     }
 }
 
@@ -253,6 +212,10 @@ sealed class UserTable(name: String = "") : Table(name),
     val login = varchar("login", 50)
 
     override val primaryKey = PrimaryKey(id)
+
+    open protected fun anonymousUser(row: ResultRow): AnonymousUser {
+        return AnonymousUser(row[id])
+    }
 
     protected abstract fun update(row: ResultRow, stmt: UpdateStatement)
 
@@ -282,7 +245,7 @@ open class DomainUserTable(name: String = "") : UserTable(name) {
     val address = varchar("address", 500).nullable()
 
     override fun update(row: ResultRow, stmt: UpdateStatement) {
-        val anoUser = AnonymousUser(row[id])
+        val anoUser = anonymousUser(row)
         stmt[firstName] = anoUser.firstName
         stmt[lastName] = anoUser.lastName
         stmt[email] = anoUser.email
@@ -300,15 +263,21 @@ object SilverpeasUser : UserTable("st_user") {
     val specificId = varchar("specificid", 500)
     val state = varchar("state", 30)
 
+    override fun anonymousUser(row: ResultRow): AnonymousUser {
+        return AnonymousUser(row[id], row[domainId])
+    }
+
     override fun update(row: ResultRow, stmt: UpdateStatement) {
-        val anoUser = AnonymousUser(row[id], row[domainId])
-        stmt[firstName] = anoUser.firstName
-        stmt[lastName] = anoUser.lastName
-        stmt[email] = anoUser.email
-        if ("DELETED" != row[state]) {
-            stmt[login] = anoUser.login
-            if ("REMOVED" != row[state])
-            SSVLogger.ofUsers().write(anoUser)
+        val anoUser = anonymousUser(row)
+        if (!anoUser.isPlatFormAdmin) {
+            stmt[firstName] = anoUser.firstName
+            stmt[lastName] = anoUser.lastName
+            stmt[email] = anoUser.email
+            if ("DELETED" != row[state]) {
+                stmt[login] = anoUser.login
+                if ("REMOVED" != row[state])
+                    SSVLogger.ofUsers().write(anoUser)
+            }
         }
     }
 }
@@ -316,7 +285,25 @@ object SilverpeasUser : UserTable("st_user") {
 /**
  * The users in the default Silverpeas domain.
  */
-object SilverpeasDomainUser: DomainUserTable("domainsp_user")
+object SilverpeasDomainUser : DomainUserTable("domainsp_user") {
+
+    override fun anonymousUser(row: ResultRow): AnonymousUser {
+        return AnonymousUser(row[SilverpeasUser.id])
+    }
+
+    override fun anonymize() {
+        join(
+            SilverpeasUser,
+            JoinType.INNER,
+            SilverpeasUser.specificId,
+            SilverpeasDomainUser.id.castTo<Column<String>>(VarCharColumnType())
+        ).select { SilverpeasDomainUser.id neq 0 }.forUpdate().distinct().forEach { user ->
+            update({ id eq user[id] }) {
+                update(user, it)
+            }
+        }
+    }
+}
 
 /**
  * The different types of groups.
@@ -358,3 +345,11 @@ object SilverpeasGroup : GroupTable("st_group") {
  * The groups in the default Silverpeas domain.
  */
 object SilverpeasDomainGroup: DomainGroupTable("domainsp_group")
+
+/**
+ * The user memberships in the Silverpeas groups
+ */
+object SilverpeasGroupUserRelTable : Table("st_group_user_rel") {
+    val userId = integer("userid") references SilverpeasUser.id
+    val groupId = integer("groupid") references SilverpeasGroup.id
+}

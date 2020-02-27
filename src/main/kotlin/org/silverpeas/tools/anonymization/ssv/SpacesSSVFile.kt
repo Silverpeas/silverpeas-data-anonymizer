@@ -9,11 +9,11 @@ import org.silverpeas.tools.anonymization.model.AnonymousSpace
 object SpacesSSVFile: SSVFile("spaces.ssv") {
 
     override fun postOpening() {
-        write("Id", "Parent")
+        write("TechId", "Id", "Parent")
     }
 
     fun write(space: AnonymousSpace) {
-        write(space.id, space.parentId)
+        write(space.localId.toString(), space.id, space.parentId)
     }
 
 }
