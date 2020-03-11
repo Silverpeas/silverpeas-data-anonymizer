@@ -14,7 +14,8 @@ object SSVLogger : Closeable {
         ofSpaces(),
         ofComponentInstances(),
         ofNodes(),
-        ofPublications()
+        ofPublications(),
+        ofACL()
     )
 
     init {
@@ -30,6 +31,8 @@ object SSVLogger : Closeable {
     fun ofNodes() = NodesSSVFile
 
     fun ofPublications() = PublicationsSSVFile
+
+    fun ofACL() = ACLSSVFile
 
     override fun close() {
         ssvfiles.forEach { it.close() }

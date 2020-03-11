@@ -18,7 +18,9 @@ val anonymizers = mapOf(
         ComponentInst.anonymize()
         ComponentInstI18n.anonymize()
     },
-    "domains" to Domain::anonymize,
+    "domains" to {
+        Domain.anonymize()
+    },
     "users" to {
         SilverpeasUser.anonymize()
         SilverpeasDomainUser.anonymize()
@@ -31,9 +33,11 @@ val anonymizers = mapOf(
         Node.anonymize()
         NodeI18n.anonymize()
     },
-    "publication" to {
+    "publications" to {
         Publication.anonymize()
-
         PublicationI18n.anonymize()
+    },
+    "authorizations" to {
+        Authorizations.anonymize()
     }
 )
