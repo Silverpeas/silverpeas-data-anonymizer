@@ -38,7 +38,20 @@ object Settings {
      * Gets the path of the Silverpeas home directory or an empty string if this path isn't defined in the
      * settings.
      */
-    fun silverpeasHome() = props.getProperty("silverpeas.home") ?: ""
+    fun silverpeasHome(): String = props.getProperty("silverpeas.home") ?: ""
+
+    /**
+     * Gets the list of anonymizers to use in the anonymizing process
+     */
+    fun anonymizers(): List<String> {
+        val anonymizers = props.getProperty("anonymizers",
+                "spaces,components,users,nodes,publications,authorizations")
+            .split(",").map { it.trim() }
+        return if (anonymizers.contains("users"))
+            anonymizers + listOf("domains", "groups")
+        else
+            anonymizers
+    }
 
     /**
      * The settings about the anonymization of the domains
@@ -149,6 +162,11 @@ object Settings {
             "fr" to null,
             "en" to null
         )
+    }
+
+    object acl {
+        val appInst = props.getProperty("authorizations", "").split(",")
+            .map { it.trim() }.filter { it.isNotEmpty() }.map { it.toInt() }
     }
 
     /**

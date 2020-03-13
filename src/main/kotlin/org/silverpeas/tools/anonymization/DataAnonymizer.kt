@@ -45,7 +45,9 @@ both the database and the data files will be anonymized"""
 
     transaction {
         SSVLogger.use {
-            anonymizers.forEach { (type, processor) ->
+            val enabledAnonymizers = Settings.anonymizers()
+            anonymizers.filterKeys { anonymizer -> enabledAnonymizers.contains(anonymizer) }
+                .forEach { (type, processor) ->
                 try {
                     print("Anonymizing the ${type}...")
                     processor.invoke()
